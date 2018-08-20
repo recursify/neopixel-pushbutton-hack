@@ -3,24 +3,18 @@
 
 /*****************************************************************************
 Example sketch for driving Adafruit WS2801 pixels!
-
-
   Designed specifically to work with the Adafruit RGB Pixels!
   12mm Bullet shape ----> https://www.adafruit.com/products/322
   12mm Flat shape   ----> https://www.adafruit.com/products/738
   36mm Square shape ----> https://www.adafruit.com/products/683
-
   These pixels use SPI to transmit the color data, and have built in
   high speed PWM drivers for 24 bit color per pixel
   2 pins are required to interface
-
   Adafruit invests time and resources providing this open source code,
   please support Adafruit and open-source hardware by purchasing
   products from Adafruit!
-
   Written by Limor Fried/Ladyada for Adafruit Industries.
   BSD license, all text above must be included in any redistribution
-
 *****************************************************************************/
 
 // Choose which 2 pins you will use for output.
@@ -36,10 +30,20 @@ Adafruit_WS2801 strip = Adafruit_WS2801(50, dataPin, clockPin);
 // Here is where you can put in your favorite colors that will appear!
 // just add new {nnn, nnn, nnn}, lines. They will be picked out randomly
 //                          R   G   B
-uint8_t myColors[][3] = {{232, 100, 255},   // purple
-                         {200, 200, 20},   // yellow
-                         {30, 200, 200},   // blue
-                          };
+uint8_t myColors[][3] = {
+  {232, 100, 255},   // purple
+  {200, 200, 20},   // yellow
+  {30, 200, 200},   // blue
+  {255, 90, 0},   // orange
+  {0, 250, 0},   // green
+};
+
+// Constants to adjust brightness of scaleColor.  0 is brightest, 8 is off
+#define COLOR_SCALE_FULL      0
+#define COLOR_SCALE_BRIGHT    2
+#define COLOR_SCALE_HALF      4
+#define COLOR_SCALE_DIM       6
+#define COLOR_SCALE_VERY_DIM  7
 
 // managing button state and mode
 #define BUTTON_PIN   6
@@ -80,24 +84,25 @@ void loop() {
     switch(mode) {
     case 0:
         Serial.println("mode 0");
-        flashRandom(5, 10);
+        flashRandom(5, 10, COLOR_SCALE_FULL);
         break;
     case 1:
-        Serial.println("rainbow cycle 10");
-        rainbowCycle(10);
+        Serial.println("rainbow cycle slow dim");
+        rainbowCycle(20, COLOR_SCALE_DIM);
         break;
     case 2:
-        Serial.println("flash random 5");
-        flashRandom(5, 5);
+        Serial.println("rainbow cycle slow half");
+        rainbowCycle(20, COLOR_SCALE_HALF);
         break;
     case 3:
-        Serial.println("rainbow cycle");
-        rainbowCycle(20);
+        Serial.println("flash random 5 full");
+        flashRandom(5, 5, COLOR_SCALE_FULL);
         break;
     case 4:
-        Serial.println("flash random 12");
-        flashRandom(5, 20);
+        Serial.println("flash random 5 DIM");
+        flashRandom(5, 5, COLOR_SCALE_DIM);
         break;
+
     }
     clearPixels();
 }
@@ -139,12 +144,14 @@ void rainbow(uint8_t wait) {
 }
 
 // Slightly different, this makes the rainbow equally distributed throughout
-void rainbowCycle(uint8_t wait) {
+void rainbowCycle(uint8_t wait, byte scale) {
   uint16_t i, j;
-
   for(j=0; j<256*5; j++) { // 5 cycles of all colors on wheel
     for(i=0; i< strip.numPixels(); i++) {
-      strip.setPixelColor(i, Wheel(((i * 256 / strip.numPixels()) + j) & 255));
+      strip.setPixelColor(
+        i,
+        scaleColor(Wheel(((i * 256 / strip.numPixels()) + j)), scale)
+      );
     }
     strip.show();
     delay(wait);
@@ -173,7 +180,7 @@ uint32_t Wheel(byte WheelPos) {
   }
 }
 
-void flashRandom(int wait, uint8_t howmany) {
+void flashRandom(int wait, uint8_t howmany, byte scale) {
 
   for(uint16_t i=0; i<howmany; i++) {
     // pick a random favorite color!
@@ -191,7 +198,7 @@ void flashRandom(int wait, uint8_t howmany) {
       int g = green * (x+1); g /= 5;
       int b = blue * (x+1); b /= 5;
 
-      strip.setPixelColor(j, Color(r, g, b));
+      strip.setPixelColor(j, scaleColor(Color(r, g, b), scale));
       strip.show();
       delay(wait);
     }
@@ -201,7 +208,7 @@ void flashRandom(int wait, uint8_t howmany) {
       int g = green * x; g /= 5;
       int b = blue * x; b /= 5;
 
-      strip.setPixelColor(j, Color(r, g, b));
+      strip.setPixelColor(j, scaleColor(Color(r, g, b), scale));
       strip.show();
       delay(wait);
     }
@@ -224,4 +231,13 @@ uint32_t Color(byte r, byte g, byte b)
   c <<= 8;
   c |= b;
   return c;
+}
+
+// scale an existing24 bit color value from R,G,B
+uint32_t scaleColor(uint32_t color, byte scale)
+{
+  byte r = (color & 0xFF0000) >> 16;
+  byte g = (color & 0xFF00) >> 8;
+  byte b = (color & 0xFF);
+  return Color(r >> scale, g >> scale, b >> scale);
 }
